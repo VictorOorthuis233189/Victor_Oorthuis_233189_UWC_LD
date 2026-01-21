@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cephalometric Landmark Editor</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f0f0f0;
+        }
+        
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+        
+        .controls {
+            margin-bottom: 20px;
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .controls button {
+            padding: 10px 20px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        
+        .controls button:hover {
+            background: #45a049;
+        }
+        
+        .zoom-controls {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 5px 10px;
+            background: #f5f5f5;
+            border-radius: 5px;
+        }
+        
+        .zoom-controls button {
+            padding: 5px 10px;
+            font-size: 18px;
+            min-width: 35px;
+        }
+        
+        .zoom-level {
+            font-weight: bold;
+            min-width: 50px;
+            text-align: center;
+        }
+        
+        input[type="file"] {
+            padding: 5px;
+        }
+        
+        input[type="range"] {
+            width: 100px;
+        }
+        
+        .landmark-size-control {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: #f5f5f5;
+            padding: 5px 10px;
+            border-radius: 5px;
+        }
+        
+        .workspace {
+            display: flex;
+            gap: 20px;
+        }
+        
+        .canvas-container {
+            position: relative;
+            border: 2px solid #ddd;
+            display: inline-block;
+            overflow: auto;
+            width: 900px;
+            height: 600px;
+            background: #fafafa;
+        }
+        
+        .canvas-wrapper {
+            position: relative;
+            display: inline-block;
+            transform-origin: top left;
+        }
+        
+        canvas {
+            display: block;
+            cursor: crosshair;
+        }
+        
+        .landmark-panel {
+            flex: 1;
+            min-width: 350px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        
+        .landmark-list {
+            flex: 1;
+            max-height: 400px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            padding: 10px;
+            border-radius: 5px;
+        }
+        
+        .landmark-item {
+            padding: 8px;
+            margin-bottom: 5px;
+            background: #f9f9f9;
+            border-radius: 3px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        
+        .landmark-item:hover {
+            background: #e0e0e0;
+        }
+        
+        .landmark-item.selected {
+            background: #4CAF50;
+            color: white;
+        }
+        
+        .landmark-item .coords {
+            font-size: 12px;
+            color: #666;
+            margin-top: 4px;
+        }
+        
+        .landmark-item.selected .coords {
+            color: #e0e0e0;
+        }
+        
+        .info-panel {
+            background: #f5f5f5;
+            padding: 15px;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+        
+        .info-row {
+            margin-bottom: 8px;
+            display: flex;
+            justify-content: space-between;
+        }
+        
+        .info-label {
+            font-weight: bold;
+            color: #555;
+        }
+        
+        .status {
+            margin-top: 10px;
+            padding: 10px;
+            background: #e8f5e9;
+            border-radius: 5px;
+            font-size: 14px;
+            color: #2e7d32;
+        }
+        
+        #jsonOutput {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f5f5f5;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+        }
+        
+        .shortcut-info {
+            background: #fff3e0;
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 13px;
+            color: #e65100;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Cephalometric Landmark Editor</h1>
+        
+        <div class="controls">
+            <div class="control-group">
+                <label>
+                    Image: <input type="file" id="imageInput" accept="image/*">
+                </label>
+                <label>
+                    JSON: <input type="file" id="jsonInput" accept=".json">
+                </label>
+            </div>
+            
+            <div class="zoom-controls">
+                <label>Zoom:</label>
+                <button onclick="zoomOut()">−</button>
+                <span class="zoom-level" id="zoomLevel">100%</span>
+                <button onclick="zoomIn()">+</button>
+                <button onclick="fitToWindow()">Fit</button>
+                <button onclick="resetZoom()">100%</button>
+            </div>
+            
+            <div class="landmark-size-control">
+                <label>Landmark Size:</label>
+                <input type="range" id="landmarkSize" min="1" max="20" value="6">
+                <span id="sizeValue">6px</span>
+            </div>
+            
+            <div class="control-group">
+                <button onclick="exportJSON()">Export JSON</button>
+                <button onclick="resetView()">Reset Selection</button>
+            </div>
+        </div>
+        
+        <div class="workspace">
+            <div class="canvas-container" id="canvasContainer">
+                <div class="canvas-wrapper" id="canvasWrapper">
+                    <canvas id="canvas"></canvas>
+                </div>
+            </div>
+            
+            <div class="landmark-panel">
+                <div class="landmark-list">
+                    <h3>Landmarks</h3>
+                    <div id="landmarksList"></div>
+                </div>
+                
+                <div class="info-panel">
+                    <h4>Information</h4>
+                    <div class="info-row">
+                        <span class="info-label">Mouse Position:</span>
+                        <span id="mousePos">-</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Image Size:</span>
+                        <span id="imageSize">-</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Current Zoom:</span>
+                        <span id="currentZoom">100%</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Selected:</span>
+                        <span id="selectedInfo">None</span>
+                    </div>
+                </div>
+                
+                <div class="shortcut-info">
+                    <strong>Tips:</strong><br>
+                    • Scroll wheel: Zoom in/out<br>
+                    • Click + Drag: Move landmarks<br>
+                    • Adjust size slider for pixel-perfect placement<br>
+                    • Smaller landmarks = higher precision
+                </div>
+                
+                <div class="status" id="status">
+                    Load an image and JSON file to begin
+                </div>
+            </div>
+        </div>
+        
+        <div id="jsonOutput"></div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const canvasContainer = document.getElementById('canvasContainer');
+        const canvasWrapper = document.getElementById('canvasWrapper');
+        
+        let image = null;
+        let landmarks = [];
+        let selectedLandmark = null;
+        let isDragging = false;
+        let dragOffset = { x: 0, y: 0 };
+        let zoom = 1;
+        let landmarkRadius = 6;
+        let jsonData = null;
+        let mouseX = 0;
+        let mouseY = 0;
+
+        // Landmark size slider
+        const sizeSlider = document.getElementById('landmarkSize');
+        sizeSlider.addEventListener('input', function(e) {
+            landmarkRadius = parseInt(e.target.value);
+            document.getElementById('sizeValue').textContent = landmarkRadius + 'px';
+            drawCanvas();
+        });
+
+        // Handle image upload
+        document.getElementById('imageInput').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    image = new Image();
+                    image.onload = function() {
+                        canvas.width = image.width;
+                        canvas.height = image.height;
+                        document.getElementById('imageSize').textContent = `${image.width} × ${image.height}px`;
+                        fitToWindow();
+                        drawCanvas();
+                        updateStatus('Image loaded successfully');
+                    };
+                    image.src = event.target.result;
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        // Handle JSON upload
+        document.getElementById('jsonInput').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    try {
+                        jsonData = JSON.parse(event.target.result);
+                        landmarks = jsonData.landmarks.map((lm, index) => ({
+                            ...lm,
+                            id: index
+                        }));
+                        updateLandmarksList();
+                        drawCanvas();
+                        updateStatus(`Loaded ${landmarks.length} landmarks`);
+                    } catch (err) {
+                        updateStatus('Error parsing JSON file');
+                        console.error(err);
+                    }
+                };
+                reader.readAsText(file);
+            }
+        });
+
+        // Mouse event handlers
+        canvas.addEventListener('mousedown', function(e) {
+            const coords = getCanvasCoordinates(e);
+            
+            // Check if clicking near a landmark
+            const clickedLandmark = findLandmarkAt(coords.x, coords.y);
+            if (clickedLandmark) {
+                selectedLandmark = clickedLandmark;
+                isDragging = true;
+                dragOffset.x = coords.x - clickedLandmark.value.x;
+                dragOffset.y = coords.y - clickedLandmark.value.y;
+                updateLandmarksList();
+                updateSelectedInfo();
+                drawCanvas();
+                canvas.style.cursor = 'grabbing';
+            }
+        });
+
+        canvas.addEventListener('mousemove', function(e) {
+            const coords = getCanvasCoordinates(e);
+            mouseX = coords.x;
+            mouseY = coords.y;
+            
+            // Update mouse position display
+            document.getElementById('mousePos').textContent = `x: ${Math.round(coords.x)}, y: ${Math.round(coords.y)}`;
+            
+            if (isDragging && selectedLandmark) {
+                selectedLandmark.value.x = Math.round(coords.x - dragOffset.x);
+                selectedLandmark.value.y = Math.round(coords.y - dragOffset.y);
+                updateLandmarksList();
+                updateSelectedInfo();
+                drawCanvas();
+                updateStatus(`Moving ${selectedLandmark.title} to (${selectedLandmark.value.x}, ${selectedLandmark.value.y})`);
+            } else {
+                // Change cursor if hovering over a landmark
+                const hoverLandmark = findLandmarkAt(coords.x, coords.y);
+                canvas.style.cursor = hoverLandmark ? 'grab' : 'crosshair';
+            }
+        });
+
+        canvas.addEventListener('mouseup', function() {
+            if (isDragging) {
+                isDragging = false;
+                canvas.style.cursor = 'crosshair';
+                updateStatus('Landmark position updated');
+                updateJSONOutput();
+            }
+        });
+
+        // Mouse wheel zoom
+        canvas.addEventListener('wheel', function(e) {
+            e.preventDefault();
+            const rect = canvas.getBoundingClientRect();
+            const mouseXRel = e.clientX - rect.left;
+            const mouseYRel = e.clientY - rect.top;
+            
+            const delta = e.deltaY > 0 ? 0.9 : 1.1;
+            const newZoom = Math.min(Math.max(0.1, zoom * delta), 5);
+            
+            // Adjust scroll to keep mouse position stable
+            const scrollLeft = canvasContainer.scrollLeft;
+            const scrollTop = canvasContainer.scrollTop;
+            
+            const newScrollLeft = mouseXRel * (newZoom / zoom - 1) + scrollLeft;
+            const newScrollTop = mouseYRel * (newZoom / zoom - 1) + scrollTop;
+            
+            zoom = newZoom;
+            updateZoom();
+            
+            canvasContainer.scrollLeft = newScrollLeft;
+            canvasContainer.scrollTop = newScrollTop;
+        });
+
+        function getCanvasCoordinates(e) {
+            const rect = canvas.getBoundingClientRect();
+            const x = (e.clientX - rect.left) / zoom;
+            const y = (e.clientY - rect.top) / zoom;
+            return { x, y };
+        }
+
+        function findLandmarkAt(x, y) {
+            const threshold = Math.max(15, landmarkRadius + 5) / zoom;
+            for (let landmark of landmarks) {
+                const dx = x - landmark.value.x;
+                const dy = y - landmark.value.y;
+                if (Math.sqrt(dx * dx + dy * dy) < threshold) {
+                    return landmark;
+                }
+            }
+            return null;
+        }
+
+        function drawCanvas() {
+            if (!image) return;
+            
+            // Clear canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw image
+            ctx.drawImage(image, 0, 0);
+            
+            // Draw landmarks
+            landmarks.forEach(landmark => {
+                const isSelected = selectedLandmark && selectedLandmark.id === landmark.id;
+                const radius = isSelected ? landmarkRadius + 2 : landmarkRadius;
+                
+                // Draw point
+                ctx.beginPath();
+                ctx.arc(landmark.value.x, landmark.value.y, radius, 0, 2 * Math.PI);
+                ctx.fillStyle = isSelected ? '#FF5722' : '#4CAF50';
+                ctx.fill();
+                ctx.strokeStyle = 'white';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                
+                // Draw label
+                ctx.fillStyle = isSelected ? '#FF5722' : '#333';
+                ctx.font = 'bold 14px Arial';
+                ctx.fillText(landmark.symbol, landmark.value.x + radius + 5, landmark.value.y - radius - 5);
+                
+                // Draw crosshair for selected landmark
+                if (isSelected) {
+                    ctx.strokeStyle = '#FF5722';
+                    ctx.lineWidth = 1;
+                    ctx.setLineDash([5, 5]);
+                    
+                    // Horizontal line
+                    ctx.beginPath();
+                    ctx.moveTo(0, landmark.value.y);
+                    ctx.lineTo(canvas.width, landmark.value.y);
+                    ctx.stroke();
+                    
+                    // Vertical line
+                    ctx.beginPath();
+                    ctx.moveTo(landmark.value.x, 0);
+                    ctx.lineTo(landmark.value.x, canvas.height);
+                    ctx.stroke();
+                    
+                    ctx.setLineDash([]);
+                }
+            });
+        }
+
+        function updateLandmarksList() {
+            const listContainer = document.getElementById('landmarksList');
+            listContainer.innerHTML = '';
+            
+            landmarks.forEach(landmark => {
+                const item = document.createElement('div');
+                item.className = 'landmark-item';
+                if (selectedLandmark && selectedLandmark.id === landmark.id) {
+                    item.classList.add('selected');
+                }
+                
+                item.innerHTML = `
+                    <strong>${landmark.symbol}</strong> - ${landmark.title}
+                    <div class="coords">x: ${landmark.value.x}, y: ${landmark.value.y}</div>
+                `;
+                
+                item.onclick = function() {
+                    selectedLandmark = landmark;
+                    updateLandmarksList();
+                    updateSelectedInfo();
+                    drawCanvas();
+                    
+                    // Center view on selected landmark
+                    const centerX = landmark.value.x * zoom - canvasContainer.clientWidth / 2;
+                    const centerY = landmark.value.y * zoom - canvasContainer.clientHeight / 2;
+                    canvasContainer.scrollLeft = centerX;
+                    canvasContainer.scrollTop = centerY;
+                };
+                
+                listContainer.appendChild(item);
+            });
+        }
+
+        function updateSelectedInfo() {
+            const infoEl = document.getElementById('selectedInfo');
+            if (selectedLandmark) {
+                infoEl.textContent = `${selectedLandmark.symbol} - ${selectedLandmark.title}`;
+            } else {
+                infoEl.textContent = 'None';
+            }
+        }
+
+        function updateStatus(message) {
+            document.getElementById('status').textContent = message;
+        }
+
+        function updateJSONOutput() {
+            if (jsonData) {
+                const updatedData = {
+                    ...jsonData,
+                    landmarks: landmarks,
+                    updated_at: new Date().toISOString()
+                };
+                document.getElementById('jsonOutput').textContent = JSON.stringify(updatedData, null, 2);
+            }
+        }
+
+        function updateZoom() {
+            canvasWrapper.style.transform = `scale(${zoom})`;
+            canvasWrapper.style.width = canvas.width + 'px';
+            canvasWrapper.style.height = canvas.height + 'px';
+            document.getElementById('zoomLevel').textContent = Math.round(zoom * 100) + '%';
+            document.getElementById('currentZoom').textContent = Math.round(zoom * 100) + '%';
+        }
+
+        function zoomIn() {
+            zoom = Math.min(zoom * 1.2, 5);
+            updateZoom();
+            centerView();
+        }
+
+        function zoomOut() {
+            zoom = Math.max(zoom * 0.8, 0.1);
+            updateZoom();
+            centerView();
+        }
+
+        function resetZoom() {
+            zoom = 1;
+            updateZoom();
+            centerView();
+        }
+
+        function fitToWindow() {
+            if (!image) return;
+            const containerWidth = canvasContainer.clientWidth - 20;
+            const containerHeight = canvasContainer.clientHeight - 20;
+            const scaleX = containerWidth / image.width;
+            const scaleY = containerHeight / image.height;
+            zoom = Math.min(scaleX, scaleY, 1);
+            updateZoom();
+            centerView();
+        }
+
+        function centerView() {
+            const centerX = (canvas.width * zoom - canvasContainer.clientWidth) / 2;
+            const centerY = (canvas.height * zoom - canvasContainer.clientHeight) / 2;
+            canvasContainer.scrollLeft = Math.max(0, centerX);
+            canvasContainer.scrollTop = Math.max(0, centerY);
+        }
+
+        function exportJSON() {
+            if (!jsonData) {
+                updateStatus('No JSON data to export');
+                return;
+            }
+            
+            const updatedData = {
+                ...jsonData,
+                landmarks: landmarks,
+                updated_at: new Date().toISOString()
+            };
+            
+            const blob = new Blob([JSON.stringify(updatedData, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'updated_landmarks.json';
+            a.click();
+            URL.revokeObjectURL(url);
+            updateStatus('JSON exported successfully');
+        }
+
+        function resetView() {
+            selectedLandmark = null;
+            drawCanvas();
+            updateLandmarksList();
+            updateSelectedInfo();
+            updateStatus('Selection cleared');
+        }
+    </script>
+</body>
+</html>
